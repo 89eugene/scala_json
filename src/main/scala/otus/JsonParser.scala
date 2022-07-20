@@ -31,7 +31,14 @@ object JsonParser extends App {
 
   implicit val resultCountryEncoder: Encoder[ResultCountry] = deriveEncoder
 
-  val countries: Array[ResultCountry] = decode[Array[Country]](lines) match {
+  def decodeListTolerantly[A: Decoder]: Decoder[List[A]] =
+    Decoder.decodeList(Decoder[A].either(Decoder[Json])).map(
+      _.flatMap(_.left.toOption)
+    )
+
+  val tolerantCountryDecoder = decodeListTolerantly[Country]
+
+  val countries: List[ResultCountry] = decode[List[Country]](lines)(tolerantCountryDecoder) match {
     case Left(e) =>
       println(s"FAILED: $e")
       throw e
@@ -40,7 +47,6 @@ object JsonParser extends App {
         .sortBy(_.area)(Ordering[BigDecimal].reverse)
         .take(10)
         .map(c => ResultCountry(c.name.official, c.capital(0), c.area))
-
   }
 
   val filename = args(0)
